@@ -8,11 +8,44 @@
 UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem():
 	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnCreateSessionComplete)),
 	FindSessionsCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnFindSessionsComplete)),
+	CancelFindSessionsCompleteDelegate(FOnCancelFindSessionsCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnCancelFindSessionsComplete)),
 	JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnJoinSessionComplete)),
 	DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnDestroySessionComplete)),
-	StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnStartSessionComplete))
+	StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnStartSessionComplete)),
+	SessionInviteReceivedDelegate(FOnSessionInviteReceivedDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnSessionInviteReceived)),
+	SessionInviteAcceptedDelegate(FOnSessionUserInviteAcceptedDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnSessionUserInviteAccepted)),
+	ReadFriendsListCompleteDelegate(FOnReadFriendsListComplete::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnReadFriendsListComplete))
 {
 	IsValidSessionInterface();
+	IsValidFriendsInterface();
+}
+
+bool UMultiplayerSessionsSubsystem::IsValidSessionInterface()
+{
+	if (!SessionInterface)
+	{
+		IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+		if (Subsystem)
+		{
+			SessionInterface = Subsystem->GetSessionInterface();
+
+		}
+	}
+	return SessionInterface.IsValid();
+}
+
+bool UMultiplayerSessionsSubsystem::IsValidFriendsInterface()
+{
+	if (!SessionInterface)
+	{
+		IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+		if (Subsystem)
+		{
+			FriendsInterface = Subsystem->GetFriendsInterface();
+
+		}
+	}
+	return FriendsInterface.IsValid();
 }
 
 void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FString MatchType)
@@ -121,6 +154,87 @@ void UMultiplayerSessionsSubsystem::StartSession()
 	}
 }
 
+void UMultiplayerSessionsSubsystem::SendSessionInviteToFriend(APlayerController* PlayerController, const FUniqueNetIdPtr FriendUniqueNetId)
+{
+	if (!IsValidSessionInterface()) {
+		UE_LOG(LogTemp, Warning, TEXT("Session Interface is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend"));
+		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
+	if (!FriendUniqueNetId.IsValid()) { 
+		UE_LOG(LogTemp, Warning, TEXT("Friend Unique Net ID is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend"));
+		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
+	if (!PlayerController) { 
+		UE_LOG(LogTemp, Warning, TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend"));
+		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
+
+	ULocalPlayer* Player = Cast<ULocalPlayer>(PlayerController->Player);
+
+	if (!Player) { 
+		UE_LOG(LogTemp, Warning, TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend")); 
+		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
+
+	if (SessionInterface->SendSessionInviteToFriend(Player->GetControllerId(), NAME_GameSession,*FriendUniqueNetId.Get())) {
+		MultiplayerOnSesionInviteSentComplete.Broadcast(true);
+		return; 
+	}
+
+	MultiplayerOnSesionInviteSentComplete.Broadcast(false);
+}
+
+void UMultiplayerSessionsSubsystem::GetFriendList(APlayerController* PlayerController)
+{
+	if (!IsValidFriendsInterface()) {
+		UE_LOG(LogTemp, Warning, TEXT("Friends Interface is not valid in UMultiplayerSessionsSubsystem::GetFriendList"));
+		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>()); return; }
+	if (!PlayerController) {
+		UE_LOG(LogTemp, Warning, TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::GetFriendList"));
+		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>()); return; }
+
+	ULocalPlayer* Player = Cast<ULocalPlayer>(PlayerController->Player);
+
+	if (!Player) {
+		UE_LOG(LogTemp, Warning, TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::GetFriendList"));
+		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>()); return;
+	}
+
+	if (!FriendsInterface->ReadFriendsList(Player->GetControllerId(), EFriendsLists::ToString((EFriendsLists::Default)))) {
+		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>());
+	}
+}
+
+TSharedPtr<FOnlineFriend> UMultiplayerSessionsSubsystem::GetFriend(APlayerController* PlayerController, const FUniqueNetIdPtr FriendUniqueNetId)
+{
+	if (!IsValidFriendsInterface()) {
+		UE_LOG(LogTemp, Warning, TEXT("Friends Interface is not valid in UMultiplayerSessionsSubsystem::GetFriend")); return TSharedPtr<FOnlineFriend>(); }
+	if (!FriendUniqueNetId.IsValid()) {
+		UE_LOG(LogTemp, Warning, TEXT("Friend Unique Net ID is not valid in UMultiplayerSessionsSubsystem::GetFriend")); return TSharedPtr<FOnlineFriend>(); }
+	if (!PlayerController) {
+		UE_LOG(LogTemp, Warning, TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::GetFriend")); return TSharedPtr<FOnlineFriend>(); }
+
+	ULocalPlayer* Player = Cast<ULocalPlayer>(PlayerController->Player);
+
+	if (!Player) {
+		UE_LOG(LogTemp, Warning, TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::GetFriend")); return TSharedPtr<FOnlineFriend>(); }
+
+	return FriendsInterface->GetFriend(Player->GetControllerId(), *FriendUniqueNetId.Get(), EFriendsLists::ToString(EFriendsLists::Default));
+}
+
+bool UMultiplayerSessionsSubsystem::IsAFriend(APlayerController* PlayerController, const FUniqueNetIdPtr UniqueNetId)
+{
+	if (!IsValidFriendsInterface()) {
+		UE_LOG(LogTemp, Warning, TEXT("Friends Interface is not valid in UMultiplayerSessionsSubsystem::IsAFriend")); return false; }
+	if (!UniqueNetId.IsValid()) {
+		UE_LOG(LogTemp, Warning, TEXT("Unique Net ID is not valid in UMultiplayerSessionsSubsystem::IsAFriend")); return false; }
+	if (!PlayerController) {
+		UE_LOG(LogTemp, Warning, TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::IsAFriend")); return false; }
+
+	ULocalPlayer* Player = Cast<ULocalPlayer>(PlayerController->Player);
+
+	if (!Player) {
+		UE_LOG(LogTemp, Warning, TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::IsAFriend")); return false;
+	}
+	return FriendsInterface->IsFriend(Player->GetControllerId(), *UniqueNetId.Get(), EFriendsLists::ToString(EFriendsLists::Default));;
+}
+
 void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	if (SessionInterface) {
@@ -141,6 +255,10 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 	}
 
 	MultiplayerOnFindSessionsComplete.Broadcast(LastSessionSearch->SearchResults, bWasSuccessful);
+}
+
+void UMultiplayerSessionsSubsystem::OnCancelFindSessionsComplete(bool bWasSuccessful)
+{
 }
 
 void UMultiplayerSessionsSubsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
@@ -171,15 +289,41 @@ void UMultiplayerSessionsSubsystem::OnStartSessionComplete(FName SessionName,boo
 	MultiplayerOnStartSessionComplete.Broadcast(bWasSuccessful);
 }
 
-bool UMultiplayerSessionsSubsystem::IsValidSessionInterface()
+void UMultiplayerSessionsSubsystem::OnSessionInviteReceived(const FUniqueNetId& UserId, const FUniqueNetId& FromId, const FString& AppId, const FOnlineSessionSearchResult& InviteResult)
 {
-	if (!SessionInterface)
-	{
-		IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
-		if (Subsystem)
-		{
-			SessionInterface = Subsystem->GetSessionInterface();
-		}
+	UE_LOG(LogTemp, Warning, TEXT("Session invite received successfuly"))
+	MultiplayerOnSessionInviteReceived.Broadcast(UserId, FromId,InviteResult);
+}
+
+void UMultiplayerSessionsSubsystem::OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Session invite accepted successfuly"))
+}
+
+void UMultiplayerSessionsSubsystem::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
+{
+	if (bWasSuccessful) {
+		TArray<TSharedRef<FOnlineFriend>> FriendList;
+		FriendsInterface->GetFriendsList(LocalUserNum, EFriendsLists::ToString((EFriendsLists::Default)), FriendList);
+		MultiplayerOnGetFriendsListComplete.Broadcast(true, FriendList);
 	}
-	return SessionInterface.IsValid();
+	else {
+		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>());
+	}
+}
+
+bool UMultiplayerSessionsSubsystem::ServerTravel(UObject* WorldContextObject, const FString& InURL, bool bAbsolute, bool bShouldSkipGameNotify)
+{
+	if (!WorldContextObject) {
+		UE_LOG(LogTemp, Warning, TEXT("WorldContextObject is not valid in UMultiplayerSessionsSubsystem::ServerTravel"));
+		return false;
+	}
+
+	//using a context object to get the world
+	UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::ReturnNull);
+	if (World) {
+		return World->ServerTravel(InURL, bAbsolute, bShouldSkipGameNotify);
+	}
+	UE_LOG(LogTemp, Warning, TEXT("World is not valid in UMultiplayerSessionsSubsystem::ServerTravel"));
+	return false;
 }

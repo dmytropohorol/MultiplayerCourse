@@ -33,11 +33,11 @@ void UMenuWidget::MenuSetup(FString LobbyPath, int32 NumOfPublicConnections, FSt
 	}
 
 	if (MultiplayerSessionsSubsystem) {
-		MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &UMenuWidget::OnCreateSession);
+		MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddUObject(this, &UMenuWidget::OnCreateSession);
 		MultiplayerSessionsSubsystem->MultiplayerOnFindSessionsComplete.AddUObject(this, &UMenuWidget::OnFindSessions);
 		MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &UMenuWidget::OnJoinSession);
-		MultiplayerSessionsSubsystem->MultiplayerOnDestroySessionComplete.AddDynamic(this, &UMenuWidget::OnDestroySession);
-		MultiplayerSessionsSubsystem->MultiplayerOnStartSessionComplete.AddDynamic(this, &UMenuWidget::OnStartSession);
+		MultiplayerSessionsSubsystem->MultiplayerOnDestroySessionComplete.AddUObject(this, &UMenuWidget::OnDestroySession);
+		MultiplayerSessionsSubsystem->MultiplayerOnStartSessionComplete.AddUObject(this, &UMenuWidget::OnStartSession);
 	}
 }
 
