@@ -36,7 +36,7 @@ bool UMultiplayerSessionsSubsystem::IsValidSessionInterface()
 
 bool UMultiplayerSessionsSubsystem::IsValidFriendsInterface()
 {
-	if (!SessionInterface)
+	if (!FriendsInterface)
 	{
 		IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
 		if (Subsystem)
@@ -158,46 +158,61 @@ void UMultiplayerSessionsSubsystem::SendSessionInviteToFriend(APlayerController*
 {
 	if (!IsValidSessionInterface()) {
 		UE_LOG(LogTemp, Warning, TEXT("Session Interface is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend"));
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Session Interface is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend")));
 		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
 	if (!FriendUniqueNetId.IsValid()) { 
 		UE_LOG(LogTemp, Warning, TEXT("Friend Unique Net ID is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend"));
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Friend Unique Net ID is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend")));
 		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
 	if (!PlayerController) { 
 		UE_LOG(LogTemp, Warning, TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend"));
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend")));
 		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
 
 	ULocalPlayer* Player = Cast<ULocalPlayer>(PlayerController->Player);
 
 	if (!Player) { 
 		UE_LOG(LogTemp, Warning, TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend")); 
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::SendSessionInviteToFriend")));
 		MultiplayerOnSesionInviteSentComplete.Broadcast(false); return; }
 
-	if (SessionInterface->SendSessionInviteToFriend(Player->GetControllerId(), NAME_GameSession,*FriendUniqueNetId.Get())) {
+	if (SessionInterface->SendSessionInviteToFriend(Player->GetControllerId(), NAME_GameSession, *FriendUniqueNetId.ToSharedRef())) {
 		MultiplayerOnSesionInviteSentComplete.Broadcast(true);
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Invite Sent")));
 		return; 
+	}
+	else {
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Failed to sent")));
 	}
 
 	MultiplayerOnSesionInviteSentComplete.Broadcast(false);
 }
 
-void UMultiplayerSessionsSubsystem::GetFriendList(APlayerController* PlayerController)
+void UMultiplayerSessionsSubsystem::GetFriendsList(APlayerController* PlayerController)
 {
 	if (!IsValidFriendsInterface()) {
 		UE_LOG(LogTemp, Warning, TEXT("Friends Interface is not valid in UMultiplayerSessionsSubsystem::GetFriendList"));
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Friends Interface is not valid in UMultiplayerSessionsSubsystem::GetFriendList")));
 		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>()); return; }
 	if (!PlayerController) {
 		UE_LOG(LogTemp, Warning, TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::GetFriendList"));
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Player Controller is not valid in UMultiplayerSessionsSubsystem::GetFriendList")));
 		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>()); return; }
 
 	ULocalPlayer* Player = Cast<ULocalPlayer>(PlayerController->Player);
 
 	if (!Player) {
 		UE_LOG(LogTemp, Warning, TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::GetFriendList"));
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("Local Player is not valid in UMultiplayerSessionsSubsystem::GetFriendList")));
 		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>()); return;
 	}
 
-	if (!FriendsInterface->ReadFriendsList(Player->GetControllerId(), EFriendsLists::ToString((EFriendsLists::Default)))) {
+	if (!FriendsInterface->ReadFriendsList(Player->GetControllerId(), EFriendsLists::ToString((EFriendsLists::Default)), ReadFriendsListCompleteDelegate)) {
 		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>());
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("FriendsInterface->ReadFriendsList is failed")));
+	}
+	else {
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("FriendsInterface->ReadFriendsList is started")));
 	}
 }
 
@@ -291,7 +306,8 @@ void UMultiplayerSessionsSubsystem::OnStartSessionComplete(FName SessionName,boo
 
 void UMultiplayerSessionsSubsystem::OnSessionInviteReceived(const FUniqueNetId& UserId, const FUniqueNetId& FromId, const FString& AppId, const FOnlineSessionSearchResult& InviteResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Session invite received successfuly"))
+	UE_LOG(LogTemp, Warning, TEXT("Session invite received successfuly"));
+	GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("OnSessionInviteReceived")));
 	MultiplayerOnSessionInviteReceived.Broadcast(UserId, FromId,InviteResult);
 }
 
@@ -302,13 +318,21 @@ void UMultiplayerSessionsSubsystem::OnSessionUserInviteAccepted(const bool bWasS
 
 void UMultiplayerSessionsSubsystem::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
 {
+	GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("UMultiplayerSessionsSubsystem::OnReadFriendsListComplete")));
 	if (bWasSuccessful) {
 		TArray<TSharedRef<FOnlineFriend>> FriendList;
-		FriendsInterface->GetFriendsList(LocalUserNum, EFriendsLists::ToString((EFriendsLists::Default)), FriendList);
-		MultiplayerOnGetFriendsListComplete.Broadcast(true, FriendList);
+		if (FriendsInterface->GetFriendsList(LocalUserNum, EFriendsLists::ToString((EFriendsLists::Default)), FriendList)) {
+			MultiplayerOnGetFriendsListComplete.Broadcast(true, FriendList);
+			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("UMultiplayerSessionsSubsystem::OnReadFriendsListComplete successfuly")));
+		}
+		else {
+			MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>());
+			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("FriendsInterface->GetFriendsList failed")));
+		}
 	}
 	else {
 		MultiplayerOnGetFriendsListComplete.Broadcast(false, TArray<TSharedRef<FOnlineFriend>>());
+		GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, FString(TEXT("UMultiplayerSessionsSubsystem::OnReadFriendsListComplete bWasSuccessful is false")));
 	}
 }
 

@@ -56,7 +56,7 @@ public:
 	void StartSession();
 
 	void SendSessionInviteToFriend(APlayerController* PlayerController, const FUniqueNetIdPtr FriendUniqueNetId);
-	void GetFriendList(APlayerController* PlayerController);
+	void GetFriendsList(APlayerController* PlayerController);
 	TSharedPtr<FOnlineFriend> GetFriend(APlayerController* PlayerController, const FUniqueNetIdPtr FriendUniqueNetId);
 	bool IsAFriend(APlayerController* PlayerController, const FUniqueNetIdPtr UniqueNetId);
 
