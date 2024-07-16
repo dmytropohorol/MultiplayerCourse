@@ -16,17 +16,14 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnCreateSessionComplete, bool bW
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnJoinSessionComplete, EOnJoinSessionCompleteResult::Type Result);
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnDestroySessionComplete, bool bWasSuccessful);
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnStartSessionComplete, bool bWasSuccessful);
-
-//Find sessions delegates
 DECLARE_MULTICAST_DELEGATE_TwoParams(FMultiplayerOnFindSessionsComplete, const TArray<FOnlineSessionSearchResult>& SessionResults, bool bWasSuccessul);
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnCancelFindSessionsComplete, bool bWasSuccessul);
-
-//Session invite delegates
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FMultiplayerOnSessionInviteReceived, const FUniqueNetId& UserId, const FUniqueNetId& FromId, const FOnlineSessionSearchResult& InviteResult);
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FMultiplayerOnSessionInviteAccepted, const bool bWasSuccessful, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult);
 DECLARE_MULTICAST_DELEGATE_OneParam(FMultiplayerOnSesionInviteSentComplete, bool bWasSuccessful);
-
 DECLARE_MULTICAST_DELEGATE_TwoParams(FMultiplayerOnGetFriendsListComplete, bool bWasSuccessful, TArray<TSharedRef<FOnlineFriend>> FriendsList);
+
+DECLARE_LOG_CATEGORY_EXTERN(LogMultiplayerSession, Log, All);
 
 enum class SteamAvatarSize : uint8
 {
@@ -112,6 +109,8 @@ protected:
 	void OnSessionUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult);
 	void OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr);
 
+	void OnInviteSendComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& FriendId, const FString& ListName, const FString& ErrorStr);
+
 private:
 	
 	bool IsValidSessionInterface();
@@ -157,19 +156,6 @@ private:
 	//Delegate fired when the online session has transitioned to the started state
 	FOnStartSessionCompleteDelegate StartSessionCompleteDelegate;
 	FDelegateHandle StartSessionCompleteDelegateHandle;
-
-	//Session invite received
-	//Called when a user receives a session invitation. Allows the game code to decide on accepting the invite.
-	//The invite can be accepted by calling JoinSession()
-	FOnSessionInviteReceivedDelegate SessionInviteReceivedDelegate;
-	FDelegateHandle SessionInviteReceivedDelegateHandle;
-
-	//Session invite accepted
-	//Called when a user accepts a session invitation. Allows the game code a chance
-	//to clean up any existing state before accepting the invite. 
-	//The invite must be accepted by calling JoinSession() after clean up has completed
-	FOnSessionUserInviteAcceptedDelegate SessionInviteAcceptedDelegate;
-	FDelegateHandle SessionInviteAcceptedDelegateHandle;
 
 	//Read friends list
 	//Delegate used when the friends read request has completed
